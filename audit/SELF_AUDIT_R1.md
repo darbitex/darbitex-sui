@@ -16,7 +16,7 @@
 | LOW | **0** | — |
 | INFO | **5** | Documented; no fix required |
 
-**Verdict:** Ready for external R1 (Gemini + Cerebras Qwen3 + Grok).
+**Verdict:** Ready for external R1 (Gemini + Claude + Grok).
 
 ---
 
@@ -208,7 +208,7 @@ Coverage gaps consciously skipped:
 
 ## External-audit handoff items
 
-For Gemini / Cerebras Qwen3 / Grok R1:
+For Gemini / Claude / Grok R1:
 
 1. **Scrutinize the flash accounting model.** Confirm that NOT decrementing `reserve_a/b` at borrow time is sound, given the k-invariant check at repay catches all interleaved swap manipulations. Adversary scenarios to test: (a) borrow → 50/50 swap → repay; (b) borrow → directional swap → repay; (c) borrow + add_liquidity + remove + repay.
 
