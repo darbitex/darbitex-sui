@@ -11,6 +11,13 @@
 /// Reserve / balance invariant: `balance_X = reserve_X + cumulative
 /// unclaimed fees`. Fees stay mixed in pool; claimed via per-share
 /// accumulator. Math is decimal-blind (raw u64 amounts).
+///
+/// WARNING: Darbitex is an immutable AMM on Sui. After destroy_cap is
+/// called the package is permanently immutable — no admin, no pause, no
+/// upgrade, no fee adjustment. Bugs are unrecoverable. Audit this code
+/// yourself before interacting. The full disclosure (9 known limitations)
+/// is exposed on-chain via `read_warning()` and printed in the WARNING
+/// constant below.
 module darbitex::pool {
     use std::ascii::String;
     use std::type_name;
@@ -40,6 +47,10 @@ module darbitex::pool {
     const E_K_VIOLATED: u64 = 9;
     const E_DEADLINE: u64 = 14;
     const E_REPAY_AMOUNT: u64 = 15;
+
+    // ===== On-chain disclosure =====
+
+    const WARNING: vector<u8> = b"DARBITEX is an immutable xyk AMM on Sui. After destroy_cap is called the package is permanently immutable - no admin authority, no pause, no upgrade, no fee adjustment. Bugs are unrecoverable. Audit this code yourself before interacting. KNOWN LIMITATIONS: (1) PRICE SOURCE - Pool reserves are the only price input. There is no oracle. Spot price is manipulable by sufficiently large swaps relative to depth. Standard xyk AMM property. (2) CAPITAL INEFFICIENCY - V2 full-range liquidity. Lower capital efficiency than V3 CLMM by design. The trade-off is V2 mathematical security plus always-in-range LP (positions never go out of range and never stop earning). (3) LP-AS-NFT - LP positions are Sui objects (LpPosition<A,B>) not Coin<T>. Cannot be used as collateral on Scallop or Suilend. Cannot be routed by Cetus or Aftermath aggregators. Trade-off accepted for per-position fee accounting and claim-without-burn capability. Wallet support varies. (4) FLASH LOAN SAFETY - flash_borrow_a/b returns Coin plus hot-potato receipt that MUST be consumed by flash_repay_a/b in the same TX. Strict repay equality (amount + fee) prevents under or overpay. The k_after >= k_before invariant verified at repay catches any pool manipulation in the borrow window. Reentrancy via Coin<T> is impossible in Sui by framework design. (5) MINIMUM LIQUIDITY - first 1000 LP shares locked at pool creation as anti-cornering protection on the first depositor. Permanently inaccessible. (6) NO TREASURY - 100 percent of swap fee plus flash fee accrue to LP via per-share accumulator. There is no protocol cut, no treasury recipient, no admin fee. (7) CANONICAL PAIR - one pool per (TypeA, TypeB) pair via the factory. The first creator picks the initial reserve ratio. Subsequent depositors take that ratio as truth. Initial creator has price discovery asymmetry until liquidity grows. (8) NO RESCUE - no admin emergency, no pause, no fund recovery. Loss of access to an LpPosition NFT or transfer to a wrong address has no recourse. (9) SEAL-AT-DEPLOY - the deploy keypair holds OriginCap plus UpgradeCap for seconds between Tx 1 (publish) and Tx 2 (destroy_cap). After Tx 2 these are destroyed and the deploy keypair has zero further authority over the package or any pool.";
 
     // ===== Structs =====
 
@@ -497,4 +508,8 @@ module darbitex::pool {
     public fun lp_supply<A, B>(pool: &Pool<A, B>): u64 { pool.lp_supply }
     public fun position_shares<A, B>(pos: &LpPosition<A, B>): u64 { pos.shares }
     public fun position_pool_id<A, B>(pos: &LpPosition<A, B>): ID { pos.pool_id }
+
+    /// On-chain disclosure (9 known limitations). Mirror of the WARNING
+    /// constant; readable by frontends, indexers, and wallet UIs.
+    public fun read_warning(): vector<u8> { WARNING }
 }

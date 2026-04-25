@@ -74,6 +74,14 @@ module darbitex::pool_tests {
     }
 
     #[test]
+    fun test_read_warning() {
+        let w = pool::read_warning();
+        // Non-empty + contains the "DARBITEX" prefix as a sanity check
+        assert!(std::vector::length(&w) > 0, 0);
+        assert!(*std::vector::borrow(&w, 0) == 68u8, 1);  // 'D'
+    }
+
+    #[test]
     fun test_compute_flash_fee() {
         // Dust borrows floor up to 1
         assert!(pool::compute_flash_fee(0) == 1, 0);

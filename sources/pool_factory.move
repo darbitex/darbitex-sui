@@ -5,6 +5,14 @@
 /// OriginCap + UpgradeCap → `package::make_immutable` + sealed=true. After
 /// sealing the only on-chain action is permissionless create_canonical_pool
 /// — zero admin surface.
+///
+/// WARNING: see `darbitex::pool::read_warning()` for the full 9-item
+/// disclosure (immutability, no rescue, manipulable price, LP-as-NFT,
+/// canonical-pair price-discovery asymmetry, etc.). Factory-specific notes:
+/// (a) `assert_sorted` rejects same-type pairs and wrong-order pairs;
+/// (b) `create_canonical_pool` aborts on duplicate pair — first creator
+/// wins, picks initial price ratio; (c) `destroy_cap` is one-shot — once
+/// sealed, no recovery from any factory-level bug.
 module darbitex::pool_factory {
     use std::ascii::{Self, String};
     use std::type_name;
