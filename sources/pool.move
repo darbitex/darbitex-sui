@@ -510,7 +510,7 @@ module darbitex::pool {
     public fun position_shares<A, B>(pos: &LpPosition<A, B>): u64 { pos.shares }
     public fun position_pool_id<A, B>(pos: &LpPosition<A, B>): ID { pos.pool_id }
 
-    /// On-chain disclosure (9 known limitations). Mirror of the WARNING
+    /// On-chain disclosure (11 known limitations). Mirror of the WARNING
     /// constant; readable by frontends, indexers, and wallet UIs.
     public fun read_warning(): vector<u8> { WARNING }
 }
