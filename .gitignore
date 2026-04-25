@@ -1,0 +1,13 @@
+# Sui Move build artifacts
+build/
+Move.lock
+
+# Sui CLI client config — contains keypairs, never commit
+.sui/
+**/.sui/
+
+# Editor / OS
+.DS_Store
+*.swp
+.vscode/
+.idea/
