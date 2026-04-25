@@ -1,11 +1,10 @@
-/// Darbitex — pool factory.
+/// Darbitex pool factory.
 ///
-/// Maintains the canonical-pool-per-pair invariant via a sorted-pair
-/// `Table<PairKey, ID>`. Sealing pattern: `OriginCap` (soulbound) +
-/// `UpgradeCap` consumed by `destroy_cap`, which calls
-/// `package::make_immutable` and sets `factory.sealed = true`. After
-/// sealing, the only on-chain action remaining is permissionless
-/// `create_canonical_pool<A, B>` calls — there is no admin surface.
+/// Canonical-pool-per-pair via sorted Table<PairKey, ID>. OTW init creates
+/// the shared FactoryRegistry + soulbound OriginCap. `destroy_cap` consumes
+/// OriginCap + UpgradeCap → `package::make_immutable` + sealed=true. After
+/// sealing the only on-chain action is permissionless create_canonical_pool
+/// — zero admin surface.
 module darbitex::pool_factory {
     use std::ascii::{Self, String};
     use std::type_name;
@@ -31,15 +30,11 @@ module darbitex::pool_factory {
 
     // ===== Structs =====
 
-    /// Canonical pair key. Constructed via `assert_sorted<A, B>()`
-    /// which enforces lexicographic ordering of TypeName strings.
     public struct PairKey has copy, drop, store {
         type_a: String,
         type_b: String,
     }
 
-    /// Singleton shared registry. Tracks every canonical pool created
-    /// through the factory and enforces the 1-pool-per-pair invariant.
     public struct FactoryRegistry has key {
         id: UID,
         pool_count: u64,
@@ -47,30 +42,18 @@ module darbitex::pool_factory {
         sealed: bool,
     }
 
-    /// Soulbound deployer cap. No `store` ability — cannot be wrapped
-    /// or transferred via `transfer::public_transfer`. Consumed by
-    /// `destroy_cap` to seal the package.
-    public struct OriginCap has key {
-        id: UID,
-    }
+    /// Soulbound (no `store`): cannot be wrapped or public-transferred.
+    public struct OriginCap has key { id: UID }
 
     // ===== Events =====
 
-    public struct FactoryInitialized has copy, drop {
-        factory_id: ID,
-        deployer: address,
-    }
-
+    public struct FactoryInitialized has copy, drop { factory_id: ID, deployer: address }
     public struct FactorySealed has copy, drop {
-        factory_id: ID,
-        deployer: address,
-        timestamp_ms: u64,
+        factory_id: ID, deployer: address, timestamp_ms: u64,
     }
 
-    // ===== Init (one-time, framework-enforced) =====
+    // ===== Init (one-time, framework-enforced via OTW) =====
 
-    /// Runs exactly once at publish. Creates the shared FactoryRegistry
-    /// and transfers OriginCap to the deployer.
     fun init(_witness: POOL_FACTORY, ctx: &mut TxContext) {
         let factory = FactoryRegistry {
             id: object::new(ctx),
@@ -79,24 +62,20 @@ module darbitex::pool_factory {
             sealed: false,
         };
         let factory_id = object::id(&factory);
-        let cap = OriginCap { id: object::new(ctx) };
         let deployer = tx_context::sender(ctx);
-
         event::emit(FactoryInitialized { factory_id, deployer });
-
         transfer::share_object(factory);
-        transfer::transfer(cap, deployer);
+        transfer::transfer(OriginCap { id: object::new(ctx) }, deployer);
     }
 
     // ===== Pair key derivation =====
 
-    /// Lexicographic byte compare for two byte vectors. Returns true
-    /// iff `a < b`. Identical vectors return false (so strict `<` also
-    /// rejects same-type pairs in `assert_sorted`).
+    /// Lex byte compare. Identical vectors return false → strict `<` also
+    /// rejects same-type pairs (canonical AMM cannot pair an asset with itself).
     fun bytes_lt(a: &vector<u8>, b: &vector<u8>): bool {
         let len_a = std::vector::length(a);
         let len_b = std::vector::length(b);
-        let min_len = if (len_a < len_b) { len_a } else { len_b };
+        let min_len = if (len_a < len_b) len_a else len_b;
         let mut i = 0;
         while (i < min_len) {
             let xa = *std::vector::borrow(a, i);
@@ -108,9 +87,7 @@ module darbitex::pool_factory {
         len_a < len_b
     }
 
-    /// Build a sorted PairKey for `(A, B)`. Aborts `E_WRONG_ORDER` if
-    /// `type_name(A) >= type_name(B)`. Strict `<` also rejects same-type
-    /// pairs (canonical AMM cannot pair an asset with itself).
+    /// Build sorted PairKey for (A, B). Aborts E_WRONG_ORDER if not strictly sorted.
     public fun assert_sorted<A, B>(): PairKey {
         let type_a = type_name::with_defining_ids<A>().into_string();
         let type_b = type_name::with_defining_ids<B>().into_string();
@@ -125,17 +102,13 @@ module darbitex::pool_factory {
 
     // ===== Pool creation =====
 
-    /// Atomic canonical pool creation. Caller supplies seeding tokens
-    /// in canonical-sorted type order. Aborts `E_DUPLICATE_PAIR` if the
-    /// pair already has a canonical pool. Returns the LP position to
-    /// the caller (the underlying `Pool<A, B>` is shared internally
-    /// inside `pool::create_pool`).
+    /// Caller supplies seeding tokens in canonical-sorted type order.
+    /// Aborts E_DUPLICATE_PAIR if pair already exists. Pool shared internally
+    /// inside pool::create_pool; LP position returned to caller.
     public fun create_canonical_pool<A, B>(
         factory: &mut FactoryRegistry,
-        coin_a: Coin<A>,
-        coin_b: Coin<B>,
-        clock: &Clock,
-        ctx: &mut TxContext,
+        coin_a: Coin<A>, coin_b: Coin<B>,
+        clock: &Clock, ctx: &mut TxContext,
     ): LpPosition<A, B> {
         let key = assert_sorted<A, B>();
         assert!(coin::value(&coin_a) > 0 && coin::value(&coin_b) > 0, E_ZERO);
@@ -144,18 +117,13 @@ module darbitex::pool_factory {
         let (pool_id, position) = pool::create_pool<A, B>(coin_a, coin_b, clock, ctx);
         table::add(&mut factory.pairs, key, pool_id);
         factory.pool_count = factory.pool_count + 1;
-
         position
     }
 
-    /// Wallet-friendly entry wrapper. Transfers the LP position to
-    /// sender after creating the pool.
     public fun create_canonical_pool_entry<A, B>(
         factory: &mut FactoryRegistry,
-        coin_a: Coin<A>,
-        coin_b: Coin<B>,
-        clock: &Clock,
-        ctx: &mut TxContext,
+        coin_a: Coin<A>, coin_b: Coin<B>,
+        clock: &Clock, ctx: &mut TxContext,
     ) {
         let position = create_canonical_pool<A, B>(factory, coin_a, coin_b, clock, ctx);
         transfer::public_transfer(position, tx_context::sender(ctx));
@@ -163,24 +131,17 @@ module darbitex::pool_factory {
 
     // ===== Sealing =====
 
-    /// Burn OriginCap + UpgradeCap, mark factory sealed.
-    /// Post-call: package is `make_immutable`, no upgrade authority
-    /// exists anywhere in the system. Idempotency guarded by
-    /// `factory.sealed` flag (subsequent calls abort `E_SEALED`).
+    /// Idempotency guard via `factory.sealed`. Post-call: package immutable,
+    /// no upgrade authority anywhere.
     public fun destroy_cap(
-        origin: OriginCap,
-        factory: &mut FactoryRegistry,
-        upgrade: UpgradeCap,
-        clock: &Clock,
-        ctx: &mut TxContext,
+        origin: OriginCap, factory: &mut FactoryRegistry, upgrade: UpgradeCap,
+        clock: &Clock, ctx: &mut TxContext,
     ) {
         assert!(!factory.sealed, E_SEALED);
-
         let OriginCap { id } = origin;
         object::delete(id);
         package::make_immutable(upgrade);
         factory.sealed = true;
-
         event::emit(FactorySealed {
             factory_id: object::id(factory),
             deployer: tx_context::sender(ctx),
@@ -190,9 +151,7 @@ module darbitex::pool_factory {
 
     // ===== Views =====
 
-    /// Look up the canonical pool ID for `(A, B)`. Returns `None` if
-    /// the pair has not been created. Caller does NOT need to pre-sort
-    /// types — the function sorts internally.
+    /// Pool ID for (A, B). Sorts internally — caller need not pre-sort.
     public fun canonical_pool_id<A, B>(factory: &FactoryRegistry): Option<ID> {
         let type_a = type_name::with_defining_ids<A>().into_string();
         let type_b = type_name::with_defining_ids<B>().into_string();
@@ -201,32 +160,19 @@ module darbitex::pool_factory {
             let bytes_b = ascii::as_bytes(&type_b);
             bytes_lt(bytes_a, bytes_b)
         };
-        let key = if (a_first) {
-            PairKey { type_a, type_b }
-        } else {
-            PairKey { type_a: type_b, type_b: type_a }
-        };
-        if (table::contains(&factory.pairs, key)) {
-            option::some(*table::borrow(&factory.pairs, key))
-        } else {
-            option::none()
-        }
+        let key = if (a_first) PairKey { type_a, type_b }
+                  else PairKey { type_a: type_b, type_b: type_a };
+        if (table::contains(&factory.pairs, key)) option::some(*table::borrow(&factory.pairs, key))
+        else option::none()
     }
 
-    public fun pool_count(factory: &FactoryRegistry): u64 {
-        factory.pool_count
-    }
-
-    public fun is_sealed(factory: &FactoryRegistry): bool {
-        factory.sealed
-    }
+    public fun pool_count(factory: &FactoryRegistry): u64 { factory.pool_count }
+    public fun is_sealed(factory: &FactoryRegistry): bool { factory.sealed }
 
     // ===== Test-only =====
 
     #[test_only]
-    public fun init_for_testing(ctx: &mut TxContext) {
-        init(POOL_FACTORY {}, ctx);
-    }
+    public fun init_for_testing(ctx: &mut TxContext) { init(POOL_FACTORY {}, ctx); }
 
     #[test_only]
     public fun mint_origin_cap_for_testing(ctx: &mut TxContext): OriginCap {

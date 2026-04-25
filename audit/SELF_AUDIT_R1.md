@@ -220,6 +220,7 @@ For Gemini / Cerebras Qwen3 / Grok R1:
    - No way to mint OriginCap (no public ctor)
    - UpgradeCap consumed → `make_immutable` precludes any `package::authorize_upgrade`
    - factory.sealed flag is purely informational since cap-loss already prevents privileged ops
+   - **Deploy uses hot wallet, no multisig** — protected solely by atomic Tx 1 publish → Tx 2 seal (seconds-window). Confirm this window's risk is acceptable given that compromise of the deployer key DURING that window is the only realistic attack vector, and post-seal compromise is harmless (no caps remain).
 
 5. **Suggest fuzz cases** for swap/LP math precision.
 
