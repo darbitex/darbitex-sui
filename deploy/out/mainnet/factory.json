@@ -1,0 +1,22 @@
+{
+  "objectId": "0x5f3e1d526eda4c34d47ec2227abe82d81d10ddf0cf714a3df071da3044e05567",
+  "version": 854466722,
+  "digest": "3goxDDgFh4buYg4bLFeijBF37cLLqa4esZ28JsGKknMd",
+  "objType": "0xf4c6b9255d67590f3c715137ea0c53ce05578c0979ea3864271f39ebc112aa68::pool_factory::FactoryRegistry",
+  "owner": {
+    "Shared": {
+      "initial_shared_version": 854466721
+    }
+  },
+  "prevTx": "aw8AA1NbUtZhmuPnWLzcw6Vw4uFTgA2gu4PzueW5qa9",
+  "storageRebate": 1770800,
+  "content": {
+    "id": "0x5f3e1d526eda4c34d47ec2227abe82d81d10ddf0cf714a3df071da3044e05567",
+    "pairs": {
+      "id": "0xb05cb6471c1a2082fe94c4ff3771b6c08466f768d7f94524ce27ee555d4a578e",
+      "size": "0"
+    },
+    "pool_count": "0",
+    "sealed": true
+  }
+}
