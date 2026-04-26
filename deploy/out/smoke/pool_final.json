@@ -1,0 +1,23 @@
+{
+  "objectId": "0x3957dea77226f5533a0ead74d9156cef5f31055c95e71d6fbd908d0fb5279818",
+  "version": 840694143,
+  "digest": "ET5ZJFfCaKXiZYdbQNDnDM8n62ZiTVBTowqBGeCnGyPH",
+  "objType": "0x8fa72fd68c38316f4349b7d8e35e8fee8f0dc556a352b9875df0fdf59c7ebb63::pool::Pool<0xf093da7b398511579503e3b23747c1abaaf2673a0419813bf89fb545e04379f4::eth_faucet::ETH_FAUCET,0xf093da7b398511579503e3b23747c1abaaf2673a0419813bf89fb545e04379f4::usdt_faucet::USDT_FAUCET>",
+  "owner": {
+    "Shared": {
+      "initial_shared_version": 840693720
+    }
+  },
+  "prevTx": "24cm38EYRACwHcY8XXbjuw8ocm6RANi5nThpUDVH26mR",
+  "storageRebate": 2667600,
+  "content": {
+    "balance_a": "98513300",
+    "balance_b": "4060368",
+    "id": "0x3957dea77226f5533a0ead74d9156cef5f31055c95e71d6fbd908d0fb5279818",
+    "lp_fee_per_share_a": "47758032",
+    "lp_fee_per_share_b": "4775803",
+    "lp_supply": "20000000",
+    "reserve_a": "98513299",
+    "reserve_b": "4060367"
+  }
+}
