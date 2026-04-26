@@ -149,6 +149,44 @@ Sui CLI version: 1.70.2 (framework rev `6d4ec0b…`, pinned in `Move.toml`).
 The same scripts deploy to testnet (`bash deploy/testnet.sh`) or mainnet
 (`bash deploy/mainnet.sh`). Both publish + seal in a single bundled run.
 
+## Source verification
+
+Anyone can independently verify that the on-chain bytecode at
+`0xf4c6b9255d67590f3c715137ea0c53ce05578c0979ea3864271f39ebc112aa68`
+matches this repository.
+
+Requires `sui` CLI 1.70.2 (the toolchain used at publish time).
+
+```
+git clone https://github.com/darbitex/darbitex-sui.git
+cd darbitex-sui
+git checkout 3c632ab3158e7fe54636902fe5efa064bbf0c62c
+```
+
+Edit `Move.toml` to add `published-at` and set the concrete address:
+
+```toml
+[package]
+name = "Darbitex"
+version = "0.1.0"
+edition = "2024.beta"
+published-at = "0xf4c6b9255d67590f3c715137ea0c53ce05578c0979ea3864271f39ebc112aa68"
+
+[addresses]
+darbitex = "0xf4c6b9255d67590f3c715137ea0c53ce05578c0979ea3864271f39ebc112aa68"
+```
+
+Then run:
+
+```
+sui client verify-source --silence-warnings
+```
+
+Expected output: `Source verification succeeded!`
+
+This compares freshly-compiled bytecode against the on-chain modules and proves
+the published package was built from this source at the pinned dep revisions.
+
 ## License
 
 This is free and unencumbered software released into the public domain — see
